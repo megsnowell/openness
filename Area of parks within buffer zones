@@ -1,0 +1,128 @@
+--Calculate area of parks within specific non-overlapping buffers
+-- Do some data cleaning
+ALTER TABLE openness.small_park RENAME TO small_parks;
+
+ALTER TABLE openness.large_parks ADD COLUMN geom_valid geometry(MultiPolygon,25832);
+UPDATE openness.large_parks SET geom_valid = ST_MakeValid(geom);
+DROP INDEX openness.large_parks_geom_idx;
+CREATE INDEX large_parks_geom_idx
+  ON openness.large_parks
+  USING gist
+  (geom_valid);
+
+ALTER TABLE openness.medium_parks ADD COLUMN geom_valid geometry(MultiPolygon,25832);
+UPDATE openness.medium_parks SET geom_valid = ST_CollectionExtract(ST_MakeValid(geom),3);
+DROP INDEX openness.medium_parks_geom_idx;
+CREATE INDEX medium_parks_geom_idx
+  ON openness.medium_parks
+  USING gist
+  (geom_valid);
+
+--Calculate area of large parks between 500-1000m buffer
+--Overwrite existing table
+DROP TABLE IF EXISTS openness.hp_large_parks_buffer;
+CREATE TABLE openness.hp_lp_500_1000m AS 
+SELECT
+a.gid, 
+--Area within the 500-1000m donut
+--ST_CollectionExtract(ST_Union(ST_Intersection(ST_Difference(ST_Buffer(a.geom,1000), ST_Buffer(a.geom,500)), b.geom)),3) AS lp_buffer_500m_to_1000m, 
+sum(ST_Area(ST_Intersection(ST_Difference(ST_Buffer(a.geom,1000), ST_Buffer(a.geom,500)), b.geom))) AS lp_500m_1000m_area_m2
+FROM 
+-- Housing layer
+(SELECT * FROM openness.xy_houses_apartments_original) AS a,
+--green infrastructure layer
+(SELECT geom_valid AS geom FROM openness.large_parks) AS b
+--Make use of indices
+WHERE ST_DWithin(a.geom,b.geom,1000)
+--Group results by appartment
+GROUP BY a.gid;
+
+--Calculate area of medium parks between 250-500m buffer
+--Overwrite existing table
+DROP TABLE IF EXISTS openness.hp_medium_parks_buffer;
+CREATE TABLE openness.hp_mp_250_500m AS 
+SELECT
+a.gid, 
+--Area within the 250-500m donut
+--ST_CollectionExtract(ST_Union(ST_Intersection(ST_Difference(ST_Buffer(a.geom,500), ST_Buffer(a.geom,250)), b.geom)),3) AS buffer_250M_to_500m, 
+sum(ST_Area(ST_Intersection(ST_Difference(ST_Buffer(a.geom,500), ST_Buffer(a.geom,250)), b.geom))) AS mp_250m_500m_area_m2
+FROM 
+-- Housing layer
+(SELECT * FROM openness.xy_houses_apartments_original) AS a,
+--green infrastructure layer
+(SELECT geom_valid AS geom FROM openness.medium_parks) AS b
+--Make use of indices
+WHERE ST_DWithin(a.geom,b.geom,1000)
+--Group results by appartment
+GROUP BY a.gid;
+
+--Calculate area of small parks between 100-250m buffer
+--Overwrite existing table
+DROP TABLE IF EXISTS openness.hp_small_parks_buffer;
+CREATE TABLE openness.hp_sp_100_250m AS 
+SELECT
+a.gid, 
+--Area within the 100-250m donut
+--ST_CollectionExtract(ST_Union(ST_Intersection(ST_Difference(ST_Buffer(a.geom,250), ST_Buffer(a.geom,100)), b.geom)),3) AS buffer_100M_to_250m, 
+sum(ST_Area(ST_Intersection(ST_Difference(ST_Buffer(a.geom,250), ST_Buffer(a.geom,100)), b.geom))) AS sp_100m_250m_area_m2
+FROM 
+-- Housing layer
+(SELECT * FROM openness.xy_houses_apartments_original) AS a,
+--green infrastructure layer
+(SELECT geom AS geom FROM openness.small_parks) AS b
+--Make use of indices
+WHERE ST_DWithin(a.geom,b.geom,1000)
+--Group results by appartment
+GROUP BY a.gid;
+
+--Calculate area of pocket parks within 100m buffer
+--Overwrite existing table
+DROP TABLE IF EXISTS openness.hp_pocket_parks_buffer;
+CREATE TABLE openness.hp_pp_100m AS 
+SELECT
+a.gid, 
+--Area within the first 100m
+--ST_CollectionExtract(ST_Union(ST_Intersection(ST_Buffer(a.geom,100), b.geom)),3) AS buffer_100m, 
+sum(ST_Area(ST_Intersection(ST_Buffer(a.geom,100), b.geom))) AS pp_100m_area_m2 
+FROM 
+-- Housing layer
+(SELECT * FROM openness.xy_houses_apartments_original) AS a,
+--green infrastructure layer
+(SELECT geom AS geom FROM openness.pocket_parks) AS b
+--Make use of indices
+WHERE ST_DWithin(a.geom,b.geom,1000)
+--Group results by appartment
+GROUP BY a.gid;
+
+
+--Run analysis of all parks within buffer
+DROP TABLE IF EXISTS openness.hp_all_parks_buffer;
+CREATE TABLE openness.hp_ap_buffer AS 
+SELECT
+a.gid, 
+--Area within the first 1000m
+--ST_Union(ST_Intersection(ST_Buffer(a.geom,1000), b.geom)) AS ap_buffer_1000m, 
+sum(ST_Area(ST_Intersection(ST_Buffer(a.geom,1000), b.geom))) AS ap_1000m_area_m2, 
+--Area within the first 500m
+--ST_Union(ST_Intersection(ST_Buffer(a.geom,500), b.geom)) AS ap_buffer_500m, 
+sum(ST_Area(ST_Intersection(ST_Buffer(a.geom,500), b.geom))) AS ap_500m_area_m2, 
+--Area within the first 250m
+--ST_Union(ST_Intersection(ST_Buffer(a.geom,250), b.geom)) AS ap_buffer_250m, 
+sum(ST_Area(ST_Intersection(ST_Buffer(a.geom,250), b.geom))) AS ap_250m_area_m2, 
+--Area within the first 100m
+--ST_Union(ST_Intersection(ST_Buffer(a.geom,100), b.geom)) AS ap_buffer_100m, 
+sum(ST_Area(ST_Intersection(ST_Buffer(a.geom,100), b.geom))) AS ap_100m_area_m2 
+FROM
+openness.xy_houses_apartments_original AS a,
+(SELECT * FROM (SELECT geom_valid AS geom FROM openness.large_parks) AS ab UNION ALL SELECT geom FROM openness.small_parks UNION ALL SELECT geom FROM openness.pocket_parks UNION ALL (SELECT geom_valid AS geom FROM openness.medium_parks)) AS b
+WHERE ST_DWithin(a.geom,b.geom,1000)
+GROUP BY a.gid;
+
+--Join area in single table
+CREATE TABLE openness.hp_results AS
+SELECT * FROM openness.xy_houses_apartments_original
+ NATURAL LEFT JOIN openness.hp_lp_500_1000m
+ NATURAL LEFT JOIN openness.hp_mp_250_500m
+ NATURAL LEFT JOIN openness.hp_sp_100_250m
+ NATURAL LEFT JOIN openness.hp_pp_100m
+ NATURAL LEFT JOIN openness.hp_ap_buffer
