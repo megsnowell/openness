@@ -1,0 +1,108 @@
+#Calculate correlation coefficient on a pixel level
+#Compare ruggedness indices
+# load libraries
+library("raster")
+library("sp")
+library (rgdal)
+
+# setwd
+setwd("C:/Users/XXX/tiff")
+TPI <- raster("tpi.tif")
+TRI <- raster("tri.tif")
+SDE <- raster("sde.tif")
+VRM <- raster("vrm.tif")
+TPI_mask <- raster("tpi_mask.tif")
+TRI_mask <- raster("tri_mask.tif")
+SDE_mask <- raster("sde_mask.tif")
+VRM_mask <- raster("vrm_mask.tif")
+
+#scale raster
+scale(TPI , center = F, scale = F)
+scale(TPI_mask , center = F, scale = F)
+
+#Calculate local correlation coefficient 
+cor.tpiCor <- corLocal(TPI,TPI_mask)
+
+# write raster
+writeRaster(cor.tpiCor,filename="tpiCor.tif",format="GTiff")
+
+#Calculate correlation coefficient between actual tree density, perceived tree density and desired tree density
+#load library
+
+
+# setwd
+setwd("C:/Users/XXX/R data")
+trees <- table("Tree_perception.xlsx")
+
+#scale field
+scale(trees, center = F, scale = F)
+
+# load libraries
+library("raster")
+library("sp")
+library (rgdal)
+
+# setwd
+setwd("C:/Users/XXX/tiff")
+slope <- raster("slope.tif")
+vrm21 <- raster("vrm_mask_21.tif")
+vrm27 <- raster("vrm_mask_27.tif")
+vrm35 <- raster("vrm_mask_35.tif")
+vrm <- raster("vrm.tif")
+vrm21_9 <-raster("vrm21_9.tif")
+vrm27_9 <-raster("vrm27_9.tif")
+vrm35_9 <-raster("vrm35_9.tif")
+
+#scale raster
+scale(slope , center = F, scale = F)
+scale(vrm21, center = F, scale = F)
+scale(vrm27 , center = F, scale = F)
+scale(vrm35 , center = F, scale = F)
+scale(vrm , center = F, scale = F)
+scale(vrm21_9, center = F, scale = F)
+scale(vrm27_9 , center = F, scale = F)
+scale(vrm35_9 , center = F, scale = F)
+
+#Calculate local correlation coefficient 
+cor.vrm27Slope <- corLocal(vrm27,slope)
+
+# write raster
+writeRaster(cor.vrm27Slope,filename="vrm27Slope.tif",format="GTiff")
+
+#Calculate local correlation coefficient 
+cor.vrm35Slope <- corLocal(vrm35,slope)
+
+# write raster
+writeRaster(cor.vrm35Slope,filename="vrm35Slope.tif",format="GTiff")
+
+#Calculate local correlation coefficient 
+cor.vrmSlope <- corLocal(vrm,slope)
+
+# write raster
+writeRaster(cor.vrmSlope,filename="vrmSlope.tif",format="GTiff")
+
+#Calculate local correlation coefficient 
+cor.vrm21Slope <- corLocal(vrm21,slope)
+
+# write raster
+writeRaster(cor.vrm21Slope,filename="vrm21Slope.tif",format="GTiff")
+
+
+
+#Calculate local correlation coefficient 
+cor.vrm21_9Slope <- corLocal(vrm21_9,slope)
+
+# write raster
+writeRaster(cor.vrm21_9Slope,filename="vrm21_9Slope.tif",format="GTiff")
+
+#Calculate local correlation coefficient 
+cor.vrm27_9Slope <- corLocal(vrm27_9,slope)
+
+# write raster
+writeRaster(cor.vrm27_9Slope,filename="vrm27_9Slope.tif",format="GTiff")
+
+#Calculate local correlation coefficient 
+cor.vrm35_9Slope <- corLocal(vrm35_9,slope)
+
+# write raster
+writeRaster(cor.vrm35_9Slope,filename="vrm35_9Slope.tif",format="GTiff")
