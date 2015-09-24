@@ -1,0 +1,37 @@
+# Create polyline from point coordinates
+#Author: Stefano Puliti (NMBU INA)
+
+# load libraries
+library (sp)
+library(rgdal)
+options(digits=15)
+
+#setwd CHANGE THE WORKING DIRECTORY TO YOUR FOLDER (change \ to /)
+setwd("C:/Users/XXX/R data") 
+
+# load data REMEMBER TO CHECK THAT YOUR FILE DOES NOT HAVE WEIRD THINGS INSIDE (e.g })
+# ALSO YOU NEED TO ELIMINATE FROM  THE TABLE THE ROWS THAT HAVE ONLY THE START COORDINATES BECAUSE OTHERWISE IT IS NOT POSSIBLE 
+# TO CREATE A LINE FROM ONLY ONE POINT
+table <- read.table("Route2.csv",header=T,sep=";", dec=".")
+
+#Change number of columns to match dataset
+Sl <- list()
+for (i in 1:nrow(table)){
+	responseid.loop <- table[i,1]
+	myXs <- paste("X", seq(1,98), sep="") #selects only the Xs
+	tableXs <- table[myXs]
+	myYs <- paste("Y", seq(1,98), sep="") #selects only the Ys
+	tableYs <- table[myYs]
+	l = cbind(c(table[i,3], as.numeric(tableXs [i,])), c(table[i,4], as.numeric(tableYs [i,])))
+	l2 <-  (l[!rowSums(is.na(l)),])
+	line <- Line(l2)
+	S1 = Lines(list(line), ID= i)
+	Sl[i] <- S1
+}
+
+finalLines <- SpatialLines(Sl,  proj4string = CRS("+init=epsg:4326")) 
+df <- data.frame(responseID= table[1:i, 1], row.names=sapply(slot(finalLines, "lines"), function(x) slot(x, "ID"))) # Here the dataframe associated with the shapefile is created 
+Sl.df <- SpatialLinesDataFrame(finalLines, data = df) # here the shape and the dataframe are merged
+
+# write shapefile NEED TO CHANGE DIRECTORY FOR OUTPUT
+writeOGR(Sl.df,"C:/Users/XXX/R data","route_2",driver="ESRI Shapefile",overwrite_layer=TRUE)
