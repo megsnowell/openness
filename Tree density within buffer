@@ -1,0 +1,34 @@
+--Calculate tree density within a 50m buffer of respondents
+--Run this SQL query in R studio on NINA server http://ninsrv16:8787/
+require(RPostgreSQL)
+#system("shp2pgsql ")
+drv<-dbDriver("PostgreSQL")
+con<-dbConnect(drv,dbname="gisdata",user="XXX", password="XXX",host="ninsrv16.nina.no")
+query <- "--Count tree density within 50m of respondents
+DROP TABLE IF EXISTS openness.tp_treedens_50m;
+CREATE TABLE openness.tp_treedens_50m AS 
+SELECT
+a.gid, 
+--Count trees within 50m of respondent
+count(b.geom) AS treedens 
+FROM 
+-- Respondent layer
+openness.oscar_dataset AS a,
+--Treedatabase layer
+openness.trees_laser_cleaned_oslo AS b
+--Make use of indices
+WHERE ST_DWithin(a.geom,b.geom,50)
+--Group results by respondent
+GROUP BY a.gid;"
+
+rs<-dbSendQuery(con,query)
+
+query <- "--pgAdmin SQL query to join tree density field to oscar_dataset
+--Join area in single table
+CREATE TABLE openness.tp_tree_perception AS
+SELECT * FROM openness.oscar_dataset
+NATURAL LEFT JOIN openness.tp_treedens_50m;"
+
+rs <- dbSendQuery(con,query)
+
+tree_dens <-fetch(rs,-1)
